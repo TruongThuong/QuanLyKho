@@ -32,5 +32,10 @@ namespace QuanLyKho.Data
         
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductCategory> ProductCategories { get; set; }
+        public DbSet<Post> Posts { get; set; }
+        public DbSet<PostCategory> PostCategories { get; set; }
+        public DbSet<PostTag> PostTags { get; set; }
+        public DbSet<Error> Errors { get; set; }
+
     }
 }

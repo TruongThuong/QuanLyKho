@@ -1,15 +1,24 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System;
+using System.Reflection;
+using Autofac;
+using Autofac.Framework.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuanLyKho.Data;
+using QuanLyKho.Data.Infrastructure;
+using QuanLyKho.Data.Repositories;
+using QuanLyKho.Service;
 
 namespace QuanLyKho.Web
 {
     public class Startup
     {
+        public IContainer container { get; private set; }
+
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
@@ -30,7 +39,7 @@ namespace QuanLyKho.Web
         public IConfigurationRoot Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container
-        public void ConfigureServices(IServiceCollection services)
+        public IServiceProvider ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<QuanLyKhoDbContext>(options =>
                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
@@ -38,19 +47,43 @@ namespace QuanLyKho.Web
             services.AddApplicationInsightsTelemetry(Configuration);
 
             services.AddMvc();
+
+            var builder = new ContainerBuilder();
+            
+            builder.RegisterType<QuanLyKhoDbContext>().AsSelf()
+                .InstancePerRequest()
+                .AutoActivate();
+            builder.RegisterType<UnitOfWork>().As<IUnitOfWork>()
+                .InstancePerRequest()
+                .AutoActivate(); ;
+            builder.RegisterType<DbFactory>().As<IDbFactory>()
+                .InstancePerRequest()
+                .AutoActivate();
+
+            //services
+            builder.RegisterAssemblyTypes(typeof(PostCategoryService).GetTypeInfo().Assembly)
+              .Where(t => t.Name.EndsWith("Service"))
+              .AsImplementedInterfaces()
+              .InstancePerRequest();
+
+            //Repository            
+
+            builder.RegisterAssemblyTypes(typeof(PostCategoryRepository).GetTypeInfo().Assembly)
+                .Where(t => t.Name.EndsWith("Repository"))
+                .AsImplementedInterfaces()
+                .InstancePerRequest();
+            var container = builder.Build();
+            return container.Resolve<IServiceProvider>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime appLifetime)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            app.UseApplicationInsightsRequestTelemetry();
-
-            app.UseApplicationInsightsExceptionTelemetry();
-
             app.UseMvc();
+            appLifetime.ApplicationStopped.Register(() => this.container.Dispose());
         }
     }
 }
