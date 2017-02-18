@@ -5,7 +5,7 @@ using QuanLyKho.Model.Models;
 using QuanLyKho.Service;
 using QuanLyKho.Web.Infrastructure.Core;
 
-namespace TeduShop.Web.Api
+namespace QuanLyKho.Web.Api
 {
     [Route("api/postcategory")]
     public class PostCategoryController : APIControllerBase

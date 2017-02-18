@@ -4,6 +4,7 @@ using Autofac;
 using Autofac.Framework.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ using QuanLyKho.Data;
 using QuanLyKho.Data.Infrastructure;
 using QuanLyKho.Data.Repositories;
 using QuanLyKho.Service;
+using QuanLyKho.Web.Api;
 
 namespace QuanLyKho.Web
 {
@@ -46,19 +48,24 @@ namespace QuanLyKho.Web
             // Add framework services.
             services.AddApplicationInsightsTelemetry(Configuration);
 
-            services.AddMvc();
+            services.AddMvc().AddControllersAsServices();
 
             var builder = new ContainerBuilder();
-            
+
             builder.RegisterType<QuanLyKhoDbContext>().AsSelf()
-                .InstancePerRequest()
-                .AutoActivate();
+                .InstancePerRequest();
             builder.RegisterType<UnitOfWork>().As<IUnitOfWork>()
-                .InstancePerRequest()
-                .AutoActivate(); ;
+                .InstancePerRequest();
             builder.RegisterType<DbFactory>().As<IDbFactory>()
-                .InstancePerRequest()
-                .AutoActivate();
+                .InstancePerRequest();
+            //API Controller
+
+            builder.RegisterAssemblyTypes(typeof(PostCategoryController).GetTypeInfo().Assembly)
+                .Where(
+                    t =>
+                        typeof(Controller).IsAssignableFrom(t) &&
+                        t.Name.EndsWith("Controller", StringComparison.Ordinal))
+                        .PropertiesAutowired();
 
             //services
             builder.RegisterAssemblyTypes(typeof(PostCategoryService).GetTypeInfo().Assembly)
@@ -72,13 +79,16 @@ namespace QuanLyKho.Web
                 .Where(t => t.Name.EndsWith("Repository"))
                 .AsImplementedInterfaces()
                 .InstancePerRequest();
+
             var container = builder.Build();
+
             return container.Resolve<IServiceProvider>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime appLifetime)
         {
+
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
